@@ -1,0 +1,88 @@
+# 📄 Project Documentation: Irrigation Need Prediction (Playground Series S6E4)
+
+## 📖 1. Project Overview
+This project addresses a multi-class classification problem to predict a crop's `Irrigation_Need` (`Low`, `Medium`, or `High`) based on soil, weather, crop, and field characteristics. The workflow is built in a Jupyter notebook (`s6e4_enhanced.ipynb`) and covers comprehensive Exploratory Data Analysis (EDA), feature engineering, cross-validated ensemble modeling, and submission generation.
+
+---
+
+## 📊 2. Dataset Overview
+| Property | Train Set | Test Set |
+|----------|-----------|----------|
+| **Rows** | 630,000   | 270,000  |
+| **Columns** | 21       | 20       |
+| **Target** | `Irrigation_Need` (`Low`, `Medium`, `High`) | Same |
+| **Missing Values** | 0 | 0 |
+| **Target Distribution** | `Low`: ~58.7%<br>`Medium`: ~37.9%<br>`High`: ~3.3% | N/A |
+
+**Key Characteristics:**
+- **Imbalanced Target:** `Low` dominates (~58.7%), `High` is rare (~3.3%).
+- **Feature Types:** Mix of numerical (`Soil_Moisture`, `Temperature_C`, `Rainfall_mm`, etc.) and categorical (`Soil_Type`, `Crop_Type`, `Season`, `Region`, etc.).
+- **No Missing Data:** Clean dataset, ready for encoding and modeling.
+
+---
+
+## 🔍 3. Exploratory Data Analysis (EDA)
+The notebook performs an extensive EDA using statistical summaries and visualizations:
+- **Target Distribution:** Bar & donut charts highlight significant class imbalance.
+- **Correlation Analysis:** Full Pearson correlation heatmap for numerical features.
+- **Skewness Analysis:** Identifies highly skewed numerical features (potential candidates for log-transforms).
+- **Outlier Detection:** IQR method used to flag outliers per numerical feature.
+- **Categorical Distributions:** Stacked bar charts show target distribution across categorical variables (`Soil_Type`, `Crop_Type`, `Season`, `Region`, `Irrigation_Type`, `Water_Source`, `Mulching_Used`).
+- **Numerical vs Target:** Combined violin + box + strip plots for each numerical feature stratified by `Irrigation_Need`.
+
+---
+
+## 🛠️ 4. Data Preprocessing & Feature Engineering
+- **Label Encoding:** `Irrigation_Need` encoded using `LabelEncoder`.
+- **One-Hot Encoding:** All categorical columns (`Soil_Type`, `Crop_Type`, `Crop_Growth_Stage`, `Season`, `Irrigation_Type`, `Water_Source`, `Region`) one-hot encoded using `pd.get_dummies(..., drop_first=True)`.
+- **Target Split:** `train_test_split` with `test_size=0.05`, `stratify=y`, `random_state=42`.
+- **Column Alignment:** Test set aligned to training feature space using `.reindex(columns=x.columns, fill_value=False)`.
+- **Categorical Mapping:** `Mulching_Used` mapped to binary (`0`/`1`).
+
+---
+
+## 🤖 5. Modeling & Evaluation Strategy
+- **Validation:** `StratifiedKFold(n_splits=5, shuffle=True, random_state=42)`
+- **Models Trained:**
+  - `LightGBM` (`class_weight='balanced'`, `n_estimators=600`, `learning_rate=0.05`, `max_depth=6`)
+  - `XGBoost` (`eval_metric='auc'`, `n_estimators=600`, `learning_rate=0.05`, `max_depth=6`)
+  - `CatBoost` (`loss_function='MultiClass'`, `eval_metric='MultiClass'`, `iterations=600`, `learning_rate=0.05`, `depth=6`, `class_weights='Balanced'`)
+- **Ensembling:** Weighted blend of out-of-fold (OOF) and test predictions from all three models.
+- **Metric:** Macro-AUC (multi-class) via cross-validation.
+
+---
+
+## 📈 6. Model Performance & Results
+| Model | CV AUC (Mean ± Std) |
+|-------|---------------------|
+| LightGBM | `0.9975 ± 0.0001` |
+| XGBoost  | `0.9977 ± 0.0001` |
+| CatBoost | `0.9972 ± 0.0001` |
+| **Ensemble** | **~0.9974** (approx.) |
+
+- **Performance:** All models achieve near-perfect Macro-AUC (~0.997), indicating excellent separation of irrigation need classes.
+- **Submission:** Predictions on the test set are inverse-transformed to original class labels and saved as `submission.csv`.
+
+---
+
+## 💡 7. Key Insights & Recommendations
+1. **Class Imbalance:** The `High` class is heavily underrepresented. While AUC is strong, consider `precision-recall` or `macro-F1` for production monitoring.
+2. **Feature Importance:** `Soil_Moisture` is the strongest predictor (η² ≈ 0.208), followed by `Wind_Speed_kmh` and `Temperature_C`.
+3. **Encoding Strategy:** One-hot encoding categorical variables worked well, but target encoding or embedding could be explored if dimensionality becomes a bottleneck.
+4. **Ensemble Advantage:** Blending LGBM, XGB, and CatBoost smooths out individual model variance and typically improves robustness on unseen data.
+5. **Next Steps:** 
+   - Add feature engineering (e.g., interaction terms like `Soil_Moisture × Temperature`, rolling rainfall metrics).
+   - Experiment with calibration (`CalibratedClassifierCV`) to improve probability calibration.
+   - Monitor class-wise metrics (`Precision`, `Recall`, `F1`) to ensure the minority `High` class isn't overlooked in production.
+
+---
+
+## 📁 8. Notebook Structure
+```markdown
+1. Libraries & Configuration
+2. Data Loading & Initial Overview
+3. EDA (Target dist, Correlations, Skewness, Outliers, Categorical/Numerical plots)
+4. Preprocessing (Encoding, Train/Test Split)
+5. Model Training (LGBM, XGB, CatBoost with 5-Fold CV)
+6. Ensemble Prediction & Submission Generation
+```
